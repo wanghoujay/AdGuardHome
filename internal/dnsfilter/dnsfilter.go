@@ -392,9 +392,6 @@ func (d *DNSFilter) CheckHost(host string, qtype uint16, setts *RequestFiltering
 		}
 	}
 
-	// Then check the filter lists.
-	// if request is blocked -- it should be blocked.
-	// if it is allowlisted -- we should do nothing with it anymore.
 	if setts.FilteringEnabled {
 		result, err = d.matchHost(host, qtype, *setts)
 		if err != nil {
@@ -646,20 +643,24 @@ func (d *DNSFilter) initFiltering(allowFilters, blockFilters []Filter) error {
 
 // matchHostProcessAllowList processes the allowlist logic of host
 // matching.
-func (d *DNSFilter) matchHostProcessAllowList(host string, dnsres urlfilter.DNSResult) (res Result) {
+func (d *DNSFilter) matchHostProcessAllowList(host string, dnsres urlfilter.DNSResult) (res Result, err error) {
 	var rule rules.Rule
 	if dnsres.NetworkRule != nil {
 		rule = dnsres.NetworkRule
-	} else if dnsres.HostRulesV4 != nil {
+	} else if len(dnsres.HostRulesV4) > 0 {
 		rule = dnsres.HostRulesV4[0]
-	} else if dnsres.HostRulesV6 != nil {
+	} else if len(dnsres.HostRulesV6) > 0 {
 		rule = dnsres.HostRulesV6[0]
+	}
+
+	if rule == nil {
+		return Result{}, fmt.Errorf("invalid dns result: rules are empty")
 	}
 
 	log.Debug("Filtering: found allowlist rule for host %q: %q  list_id: %d",
 		host, rule.Text(), rule.GetFilterListID())
 
-	return makeResult(rule, NotFilteredAllowList)
+	return makeResult(rule, NotFilteredAllowList), nil
 }
 
 // matchHost is a low-level way to check only if hostname is filtered by rules,
@@ -681,7 +682,7 @@ func (d *DNSFilter) matchHost(host string, qtype uint16, setts RequestFilteringS
 	if d.filteringEngineAllow != nil {
 		dnsres, ok := d.filteringEngineAllow.MatchRequest(ureq)
 		if ok {
-			return d.matchHostProcessAllowList(host, dnsres), nil
+			return d.matchHostProcessAllowList(host, dnsres)
 		}
 	}
 

@@ -15,8 +15,9 @@ type DNSRewriteResult struct {
 // the server returns.
 type DNSRewriteResultResponse map[rules.RRType][]rules.RRValue
 
-// processDNSRewrites processes DNS rewrite rules in dnsr and returns
-// the result.
+// processDNSRewrites processes DNS rewrite rules in dnsr.  It returns
+// an empty result if dnsr is empty.  Otherwise, the result with have
+// either CanonName or DNSRewriteResult set.
 func (d *DNSFilter) processDNSRewrites(dnsr []*rules.NetworkRule) (res Result) {
 	if len(dnsr) == 0 {
 		return Result{}
@@ -36,6 +37,7 @@ func (d *DNSFilter) processDNSRewrites(dnsr []*rules.NetworkRule) (res Result) {
 				FilterListID: int64(nr.GetFilterListID()),
 				Text:         nr.RuleText,
 			}}
+
 			return Result{
 				Reason:    DNSRewriteRule,
 				Rules:     rules,
